@@ -1,0 +1,309 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <title>DE Interview QA</title>
+  <style>
+    :root {
+      --bg: #0b1020;
+      --card: #131a2e;
+      --muted: #8ea0c7;
+      --text: #e9eeff;
+      --accent: #6ea8fe;
+      --ok: #43d17a;
+      --border: #233055;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: Inter, Segoe UI, Roboto, Arial, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      -webkit-font-smoothing: antialiased;
+      padding-bottom: env(safe-area-inset-bottom);
+    }
+    .wrap {
+      max-width: 840px;
+      margin: 0 auto;
+      padding: 16px 14px 36px;
+    }
+    .top {
+      position: sticky;
+      top: 0;
+      z-index: 10;
+      background: linear-gradient(180deg, rgba(11,16,32,.98), rgba(11,16,32,.88));
+      backdrop-filter: blur(4px);
+      padding-top: 8px;
+      padding-bottom: 8px;
+    }
+    h1 {
+      font-size: 1.1rem;
+      margin: 0 0 10px;
+    }
+    .meta {
+      color: var(--muted);
+      font-size: .92rem;
+      margin-bottom: 10px;
+    }
+    .controls {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 8px;
+      margin-bottom: 10px;
+    }
+    input[type="search"] {
+      width: 100%;
+      border: 1px solid var(--border);
+      background: #0e1529;
+      color: var(--text);
+      border-radius: 10px;
+      padding: 10px 12px;
+      font-size: 1rem;
+      outline: none;
+    }
+    button {
+      border: 1px solid var(--border);
+      background: #0f1730;
+      color: var(--text);
+      border-radius: 10px;
+      padding: 10px 12px;
+      font-size: .95rem;
+    }
+    .progress {
+      width: 100%;
+      height: 8px;
+      background: #0f1730;
+      border: 1px solid var(--border);
+      border-radius: 99px;
+      overflow: hidden;
+      margin-bottom: 12px;
+    }
+    .bar {
+      height: 100%;
+      width: 0%;
+      background: linear-gradient(90deg, var(--accent), var(--ok));
+      transition: width .2s ease;
+    }
+    .section {
+      margin: 18px 0 8px;
+      font-size: 1rem;
+      color: #cfe0ff;
+    }
+    .card {
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      background: var(--card);
+      padding: 12px;
+      margin-bottom: 10px;
+    }
+    .qrow {
+      display: grid;
+      grid-template-columns: 26px 1fr;
+      gap: 8px;
+      align-items: start;
+      margin-bottom: 8px;
+    }
+    .qtext {
+      font-weight: 600;
+      line-height: 1.35;
+    }
+    .answer {
+      color: #d6e1ff;
+      line-height: 1.45;
+      white-space: pre-wrap;
+      font-size: .96rem;
+    }
+    .answer strong { color: #ffffff; }
+    .empty {
+      color: var(--muted);
+      text-align: center;
+      padding: 24px 10px;
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="top">
+      <h1>Data Engineer Interview Checklist</h1>
+      <div id="meta" class="meta">Загрузка вопросов...</div>
+      <div class="controls">
+        <input id="search" type="search" placeholder="Поиск по вопросу/ответу">
+        <button id="resetBtn" type="button">Сброс</button>
+      </div>
+      <div class="progress"><div id="bar" class="bar"></div></div>
+    </div>
+
+    <div id="content"></div>
+  </div>
+
+  <script>
+    const MD_PATH = "DE_INTERVIEW_QA.md";
+    const STORAGE_PREFIX = "de_qa_checked_v1:";
+
+    function hashString(s) {
+      let h = 5381;
+      for (let i = 0; i < s.length; i++) h = ((h << 5) + h) + s.charCodeAt(i);
+      return (h >>> 0).toString(36);
+    }
+
+    function parseMarkdown(md) {
+      const lines = md.replace(/\r/g, "").split("\n");
+      const items = [];
+      let section = "Без раздела";
+      let cur = null;
+
+      const pushCur = () => {
+        if (!cur) return;
+        cur.answer = cur.answerLines.join("\n").trim();
+        delete cur.answerLines;
+        items.push(cur);
+        cur = null;
+      };
+
+      for (const raw of lines) {
+        const line = raw.trimEnd();
+
+        const h2 = line.match(/^##\s+(.+)$/);
+        if (h2) {
+          pushCur();
+          section = h2[1].trim();
+          continue;
+        }
+
+        const q = line.match(/^- \[[ xX]\]\s+(.+)$/);
+        if (q) {
+          pushCur();
+          cur = {
+            section,
+            question: q[1].trim(),
+            answerLines: []
+          };
+          continue;
+        }
+
+        if (!cur) continue;
+
+        if (line.startsWith("Ответ:")) {
+          cur.answerLines.push(line.replace(/^Ответ:\s*/, ""));
+        } else if (line.trim() === "") {
+          cur.answerLines.push("");
+        } else if (!line.startsWith("---")) {
+          cur.answerLines.push(line.replace(/^\s{2}/, ""));
+        }
+      }
+      pushCur();
+      return items;
+    }
+
+    function getKey(item) {
+      return STORAGE_PREFIX + hashString(item.section + "::" + item.question);
+    }
+
+    function isChecked(item) {
+      return localStorage.getItem(getKey(item)) === "1";
+    }
+
+    function setChecked(item, val) {
+      localStorage.setItem(getKey(item), val ? "1" : "0");
+    }
+
+    function setMeta(items) {
+      const total = items.length;
+      const done = items.filter(isChecked).length;
+      const pct = total ? Math.round((done / total) * 100) : 0;
+      document.getElementById("meta").textContent =
+        `Пройдено: ${done}/${total} (${pct}%)`;
+      document.getElementById("bar").style.width = pct + "%";
+    }
+
+    function render(items, query = "") {
+      const q = query.trim().toLowerCase();
+      const filtered = q
+        ? items.filter(i =>
+            i.question.toLowerCase().includes(q) ||
+            i.answer.toLowerCase().includes(q) ||
+            i.section.toLowerCase().includes(q))
+        : items;
+
+      const content = document.getElementById("content");
+      content.innerHTML = "";
+
+      if (!filtered.length) {
+        content.innerHTML = `<div class="empty">Ничего не найдено</div>`;
+        setMeta(items);
+        return;
+      }
+
+      let currentSection = "";
+      for (const item of filtered) {
+        if (item.section !== currentSection) {
+          currentSection = item.section;
+          const h = document.createElement("div");
+          h.className = "section";
+          h.textContent = currentSection;
+          content.appendChild(h);
+        }
+
+        const card = document.createElement("div");
+        card.className = "card";
+
+        const qrow = document.createElement("div");
+        qrow.className = "qrow";
+
+        const cb = document.createElement("input");
+        cb.type = "checkbox";
+        cb.checked = isChecked(item);
+        cb.addEventListener("change", () => {
+          setChecked(item, cb.checked);
+          setMeta(items);
+        });
+
+        const qt = document.createElement("div");
+        qt.className = "qtext";
+        qt.textContent = item.question;
+
+        qrow.appendChild(cb);
+        qrow.appendChild(qt);
+
+        const ans = document.createElement("div");
+        ans.className = "answer";
+        ans.textContent = item.answer || "Ответ не найден.";
+
+        card.appendChild(qrow);
+        card.appendChild(ans);
+        content.appendChild(card);
+      }
+
+      setMeta(items);
+    }
+
+    async function main() {
+      try {
+        const md = await fetch(MD_PATH, { cache: "no-store" }).then(r => {
+          if (!r.ok) throw new Error(`HTTP ${r.status}`);
+          return r.text();
+        });
+        const items = parseMarkdown(md);
+        render(items);
+
+        const search = document.getElementById("search");
+        search.addEventListener("input", () => render(items, search.value));
+
+        document.getElementById("resetBtn").addEventListener("click", () => {
+          if (!confirm("Сбросить все галочки?")) return;
+          for (const it of items) localStorage.removeItem(getKey(it));
+          render(items, search.value);
+        });
+      } catch (e) {
+        document.getElementById("meta").textContent =
+          "Ошибка загрузки DE_INTERVIEW_QA.md";
+        document.getElementById("content").innerHTML =
+          `<div class="empty">${String(e)}</div>`;
+      }
+    }
+
+    main();
+  </script>
+</body>
+</html>
