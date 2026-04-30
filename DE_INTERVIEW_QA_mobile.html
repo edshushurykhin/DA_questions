@@ -48,15 +48,68 @@
       max-width: 840px;
       margin: 0 auto;
       padding: 16px 14px 36px;
+      scroll-padding-top: 12px;
+    }
+    .top-wrap {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      z-index: 20;
+      padding-top: env(safe-area-inset-top, 0);
+      pointer-events: none;
+    }
+    .top-inner {
+      pointer-events: auto;
+      max-width: 840px;
+      margin: 0 auto;
+      padding: 0 14px;
+    }
+    body.header-collapsed .top-inner {
+      display: none;
     }
     .top {
-      position: sticky;
-      top: 0;
-      z-index: 10;
+      position: relative;
       background: var(--top-bg);
-      backdrop-filter: blur(4px);
-      padding-top: 8px;
-      padding-bottom: 8px;
+      backdrop-filter: blur(6px);
+      border: 1px solid var(--border);
+      border-top: none;
+      border-radius: 0 0 12px 12px;
+      padding: 8px 0 10px;
+      box-shadow: 0 6px 18px rgba(0, 0, 0, 0.06);
+    }
+    .header-peek {
+      display: none;
+      pointer-events: auto;
+      position: relative;
+      z-index: 21;
+      margin: -4px auto 0;
+      width: max-content;
+      max-width: calc(100% - 28px);
+      border: 1px solid var(--border);
+      border-top: none;
+      background: var(--card);
+      color: var(--text);
+      border-radius: 0 0 10px 10px;
+      padding: 4px 16px 8px;
+      font-size: 0.78rem;
+      cursor: pointer;
+      box-shadow: 0 6px 16px rgba(0, 0, 0, 0.08);
+    }
+    body.header-collapsed .header-peek {
+      display: block;
+    }
+    .toc-row {
+      margin-bottom: 8px;
+    }
+    .toc-row label {
+      display: block;
+      font-size: 0.78rem;
+      color: var(--muted);
+      margin-bottom: 4px;
+    }
+    #tocSelect {
+      width: 100%;
     }
     h1 {
       font-size: 1.1rem;
@@ -118,6 +171,10 @@
       margin: 18px 0 8px;
       font-size: 1rem;
       color: var(--section-text);
+      scroll-margin-top: 12px;
+    }
+    html {
+      scroll-padding-top: 100px;
     }
     .card {
       border: 1px solid var(--border);
@@ -154,23 +211,40 @@
         grid-template-columns: 1fr;
       }
     }
+    :root[data-theme="dark"] .top {
+      box-shadow: 0 8px 22px rgba(0, 0, 0, 0.35);
+    }
+    :root[data-theme="dark"] .header-peek {
+      box-shadow: 0 6px 18px rgba(0, 0, 0, 0.4);
+    }
   </style>
 </head>
 <body>
-  <div class="wrap">
-    <div class="top">
-      <h1>Data Engineer Interview Checklist</h1>
-      <div id="meta" class="meta">Загрузка вопросов...</div>
-      <div class="controls">
-        <input id="search" type="search" placeholder="Поиск по вопросу/ответу">
-        <select id="themeSelect" aria-label="Выбор темы">
-          <option value="auto">Тема: Auto</option>
-          <option value="light">Тема: Light</option>
-          <option value="dark">Тема: Dark</option>
-        </select>
-        <button id="resetBtn" type="button">Сброс</button>
+  <div class="wrap" id="pageWrap">
+    <div class="top-wrap" id="topWrap">
+      <div class="top-inner">
+        <div id="topPanel" class="top">
+          <h1>Data Engineer Interview Checklist</h1>
+          <div id="meta" class="meta">Загрузка вопросов...</div>
+          <div class="toc-row">
+            <label for="tocSelect">К разделу</label>
+            <select id="tocSelect" aria-label="Перейти к разделу">
+              <option value="">— выберите раздел —</option>
+            </select>
+          </div>
+          <div class="controls">
+            <input id="search" type="search" placeholder="Поиск по вопросу/ответу">
+            <select id="themeSelect" aria-label="Выбор темы">
+              <option value="auto">Тема: Auto</option>
+              <option value="light">Тема: Light</option>
+              <option value="dark">Тема: Dark</option>
+            </select>
+            <button id="resetBtn" type="button">Сброс</button>
+          </div>
+          <div class="progress"><div id="bar" class="bar"></div></div>
+        </div>
       </div>
-      <div class="progress"><div id="bar" class="bar"></div></div>
+      <button type="button" id="headerPeek" class="header-peek" aria-label="Показать панель">Панель</button>
     </div>
 
     <div id="content"></div>
@@ -287,6 +361,100 @@
       document.getElementById("bar").style.width = pct + "%";
     }
 
+    function sectionDomId(section) {
+      return "sec-" + hashString(section);
+    }
+
+    function fillToc(items) {
+      const sel = document.getElementById("tocSelect");
+      const seen = new Set();
+      sel.innerHTML = "";
+      const opt0 = document.createElement("option");
+      opt0.value = "";
+      opt0.textContent = "— выберите раздел —";
+      sel.appendChild(opt0);
+      for (const it of items) {
+        if (seen.has(it.section)) continue;
+        seen.add(it.section);
+        const o = document.createElement("option");
+        o.value = sectionDomId(it.section);
+        o.textContent = it.section;
+        sel.appendChild(o);
+      }
+    }
+
+    function updateHeaderSpacer() {
+      const wrap = document.getElementById("pageWrap");
+      const tw = document.getElementById("topWrap");
+      if (!wrap || !tw) return;
+      const collapsed = document.body.classList.contains("header-collapsed");
+      const pad = collapsed
+        ? Math.ceil((document.getElementById("headerPeek")?.offsetHeight || 28) + 14)
+        : Math.ceil(tw.getBoundingClientRect().height + 12);
+      wrap.style.paddingTop = pad + "px";
+    }
+
+    function expandHeader() {
+      if (!document.body.classList.contains("header-collapsed")) return;
+      document.body.classList.remove("header-collapsed");
+      updateHeaderSpacer();
+    }
+
+    function initHeaderSpacerObserver() {
+      const tw = document.getElementById("topWrap");
+      const tp = document.getElementById("topPanel");
+      if (!tw) return;
+      const run = () => updateHeaderSpacer();
+      if (typeof ResizeObserver !== "undefined") {
+        const ro = new ResizeObserver(run);
+        ro.observe(tw);
+        if (tp) ro.observe(tp);
+      }
+      window.addEventListener("resize", run, { passive: true });
+      queueMicrotask(run);
+    }
+
+    function initHeaderScrollHide() {
+      let lastY = window.scrollY || 0;
+      let ticking = false;
+      const peek = document.getElementById("headerPeek");
+      peek.addEventListener("click", () => {
+        expandHeader();
+        window.scrollTo({ top: 0, behavior: "smooth" });
+      });
+
+      const onScroll = () => {
+        const y = window.scrollY || 0;
+        const dy = y - lastY;
+        if (y < 24) {
+          expandHeader();
+        } else if (dy > 6 && y > 72) {
+          if (!document.body.classList.contains("header-collapsed")) {
+            document.body.classList.add("header-collapsed");
+            updateHeaderSpacer();
+          }
+        } else if (dy < -6) {
+          if (document.body.classList.contains("header-collapsed")) {
+            document.body.classList.remove("header-collapsed");
+            updateHeaderSpacer();
+          }
+        }
+        lastY = y;
+        ticking = false;
+      };
+
+      window.addEventListener(
+        "scroll",
+        () => {
+          if (!ticking) {
+            ticking = true;
+            requestAnimationFrame(onScroll);
+          }
+        },
+        { passive: true }
+      );
+    }
+
     function render(items, query = "") {
       const q = query.trim().toLowerCase();
       const filtered = q
@@ -302,6 +470,7 @@
       if (!filtered.length) {
         content.innerHTML = `<div class="empty">Ничего не найдено</div>`;
         setMeta(items);
+        updateHeaderSpacer();
         return;
       }
 
@@ -311,6 +480,7 @@
           currentSection = item.section;
           const h = document.createElement("div");
           h.className = "section";
+          h.id = sectionDomId(item.section);
           h.textContent = currentSection;
           content.appendChild(h);
         }
@@ -346,6 +516,7 @@
       }
 
       setMeta(items);
+      updateHeaderSpacer();
     }
 
     async function main() {
@@ -356,10 +527,29 @@
           return r.text();
         });
         const items = parseMarkdown(md);
+        fillToc(items);
+        initHeaderSpacerObserver();
+        initHeaderScrollHide();
         render(items);
 
         const search = document.getElementById("search");
         search.addEventListener("input", () => render(items, search.value));
+
+        document.getElementById("tocSelect").addEventListener("change", e => {
+          const id = e.target.value;
+          if (!id) return;
+          document.body.classList.remove("header-collapsed");
+          updateHeaderSpacer();
+          search.value = "";
+          render(items, "");
+          requestAnimationFrame(() => {
+            requestAnimationFrame(() => {
+              const el = document.getElementById(id);
+              if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
+            });
+          });
+          e.target.value = "";
+        });
 
         document.getElementById("resetBtn").addEventListener("click", () => {
           if (!confirm("Сбросить все галочки?")) return;

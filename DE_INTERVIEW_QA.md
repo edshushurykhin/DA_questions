@@ -764,6 +764,14 @@ Debezium читает журнал транзакций и получает вс
 
 ## 8) Spark
 
+- [ ] Какие основные join, трансформации и оконные функции в Spark (DataFrame/SQL) чаще всего ждут на собеседовании?
+
+Join: inner, left/leftouter, right, full/outer, crossJoin, left_semi и left_anti (semi/anti), плюс broadcast для маленькой стороны; в SQL те же семантики через JOIN и LEFT SEMI. Важно проговорить shuffle join против broadcast и рост объёма/skew при плохом ключе.
+
+Трансформации (ленивые): select, selectExpr, filter/where, drop, withColumn/withColumnRenamed; union/unionByName, distinct; groupBy/rollup/cube и agg (sum, count, max и т.д.); orderBy, sort, repartition, coalesce; тяжёлые — join и groupBy (часто shuffle). map/flatMap на Dataset/RDD — как вариант без полного SQL-плана.
+
+Окна: Window.partitionBy(...).orderBy(...), при необходимости rowsBetween/rangeBetween; row_number, rank, dense_rank, lag/lead, агрегаты sum/avg/count с over(w). Типичные кейсы: дедуп последней строки, накопительные суммы без лишнего self-join.
+
 - [ ] Почему Spark пришел на замену классическому MapReduce?
 Spark уменьшает дисковые round-trip за счет in-memory вычислений и умного планирования, поддерживает richer API (SQL, DataFrame, streaming) и быстрее для итеративных задач.
 Это не «всегда быстрее», но в большинстве аналитических ETL-сценариев Spark дает лучшую производительность и удобство разработки.
