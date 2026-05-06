@@ -4,6 +4,8 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <title>DE Interview QA</title>
+  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/dompurify@3.1.6/dist/purify.min.js"></script>
   <style>
     :root {
       --bg: #f4f7fb;
@@ -201,10 +203,30 @@
     .answer {
       color: var(--answer-text);
       line-height: 1.45;
-      white-space: pre-wrap;
+      white-space: normal;
       font-size: .96rem;
     }
     .answer strong { color: var(--text); }
+    .answer ul, .answer ol {
+      margin: 0.5rem 0 0.5rem 1.25rem;
+      padding-left: 1rem;
+    }
+    .answer li {
+      margin: 0.2rem 0;
+    }
+    .answer li > ul, .answer li > ol {
+      margin-top: 0.2rem;
+    }
+    .answer ul, .answer ol {
+      margin: 0.5rem 0 0.5rem 1.25rem;
+      padding-left: 1rem;
+    }
+    .answer li {
+      margin: 0.2rem 0;
+    }
+    .answer li > ul, .answer li > ol {
+      margin-top: 0.2rem;
+    }
     .empty {
       color: var(--muted);
       text-align: center;
@@ -337,7 +359,8 @@
         } else if (line.trim() === "") {
           cur.answerLines.push("");
         } else if (!line.startsWith("---")) {
-          cur.answerLines.push(line.replace(/^\s*-\s+/, "").replace(/^\s{2}/, ""));
+          // Keep markdown list markers/indentation for proper nested list rendering.
+          cur.answerLines.push(raw);
         }
       }
       pushCur();
@@ -536,7 +559,9 @@
 
         const ans = document.createElement("div");
         ans.className = "answer";
-        ans.innerHTML = mdInlineToSafeHtml(item.answer || "Ответ не найден.");
+        const rawAnswerMd = item.answer || "Ответ не найден.";
+        const answerHtml = marked.parse(rawAnswerMd);
+        ans.innerHTML = DOMPurify.sanitize(answerHtml);
 
         card.appendChild(qrow);
         card.appendChild(ans);
