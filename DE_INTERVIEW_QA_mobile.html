@@ -194,6 +194,10 @@
       font-weight: 600;
       line-height: 1.35;
     }
+    .qtext strong {
+      font-weight: 700;
+      color: var(--text);
+    }
     .answer {
       color: var(--answer-text);
       line-height: 1.45;
@@ -338,6 +342,30 @@
       }
       pushCur();
       return items;
+    }
+
+    function escapeHtml(s) {
+      return String(s)
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;");
+    }
+
+    /** Рендерит только inline **жирный** из Markdown (остальное экранируется). */
+    function mdInlineToSafeHtml(s) {
+      if (s == null || s === "") return "";
+      const str = String(s);
+      const delimCount = (str.match(/\*\*/g) || []).length;
+      if (delimCount % 2 === 1) return escapeHtml(str);
+      const parts = str.split("**");
+      if (parts.length < 2) return escapeHtml(str);
+      let out = "";
+      for (let i = 0; i < parts.length; i++) {
+        if (i % 2 === 0) out += escapeHtml(parts[i]);
+        else out += "<strong>" + escapeHtml(parts[i]) + "</strong>";
+      }
+      return out;
     }
 
     function getKey(item) {
@@ -501,14 +529,14 @@
 
         const qt = document.createElement("div");
         qt.className = "qtext";
-        qt.textContent = item.question;
+        qt.innerHTML = mdInlineToSafeHtml(item.question);
 
         qrow.appendChild(cb);
         qrow.appendChild(qt);
 
         const ans = document.createElement("div");
         ans.className = "answer";
-        ans.textContent = item.answer || "Ответ не найден.";
+        ans.innerHTML = mdInlineToSafeHtml(item.answer || "Ответ не найден.");
 
         card.appendChild(qrow);
         card.appendChild(ans);
