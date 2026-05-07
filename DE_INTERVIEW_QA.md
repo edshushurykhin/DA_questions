@@ -1831,9 +1831,57 @@ Task = одна единица работы над одной партицией
 
 - [ ] Какие основные трансформации в Spark (DataFrame/SQL) чаще всего ждут на собеседовании?
 
-Трансформации (в терминологии Spark — ленивые, narrow/wide) — операции над Dataset/DataFrame до action:
+В Spark трансформации делятся на **узкие (narrow)** и **широкие (wide)**. На собеседовании ждут не просто перечисления методов, а понимания их влияния на shuffle, границы Stage и оптимизации Catalyst.
 
-- Выбор столбцов и фильтрация: `select`, `selectExpr` (SQL-выражения строкой), `where`/`filter`, `drop`, `withColumn`/`withColumnRenamed`. Объединение наборов: `union`/`unionByName`, `distinct`. Групповые операции: `groupBy`, опционально `rollup`/`cube` для иерархий, `agg` с `sum`/`count`/`max`… Сортировка и перестановка партиций: `orderBy`/`sort`, `repartition` (с shuffle), `coalesce` (часто уменьшить число файлов без полного shuffle — компромисс по «толстым» партициям). «Широкие» операции (wide transformations), почти всегда влекущие shuffle: `join`, `groupBy`, `repartition`, `distinct` на распределённых данных. Для RDD/Dataset иногда используют `map`/`flatMap`, но в ETL чаще остаются в SQL/DataFrame, чтобы Catalyst мог оптимизировать план.
+**Узкие трансформации (No Shuffle):**
+
+Выполняются в пределах одной партиции. Дешёвые, не запускают новые Stage.
+
+select() - Выбор/переименование колонок
+
+filter() / where() - Фильтрация строк
+
+withColumn() - Добавление/изменение колонки
+
+drop(), cast(), na.fill() - Удаление, приведение типов, заполнение NULL
+
+**Широкие трансформации (Shuffle):**
+
+Требуют перемешивания данных между executor'ами. Определяют границы Stage, самые дорогие.
+
+groupBy().agg() - Агрегация по ключу
+
+join() - Соединение таблиц
+
+orderBy() / sort() - Глобальная сортировка
+
+distinct() / dropDuplicates() - Удаление дублей
+
+repartition() / coalesce() - Изменение числа партиций
+
+**Структурные / Сложные**
+
+explode() - Разворачивание массивов/JSON
+
+pivot() / unpivot() - Строки ↔ столбцы
+
+union() vs unionByName() - Объединение датафреймов
+
+Оконные функции - row_number(), lag(), скользящие суммы
+
+*Ответ одной строкой на собеседовании:* Трансформации делятся на узкие (без shuffle: select, filter, withColumn) и широкие (с shuffle: groupBy, join, orderBy, distinct). Spark выполняет их лениво, строя DAG, а Catalyst автоматически применяет predicate pushdown и column pruning.
+
+- [ ] Почему withColumn с Python-функцией тормозит?
+
+Каждая строка сериализуется из JVM в Python-процесс и обратно. Решение: встроенные функции Spark или pandas_udf (Arrow).
+
+- [ ] Чем distinct() отличается от dropDuplicates()??
+
+distinct() хеширует все колонки, dropDuplicates(cols) — только указанные. Второе быстрее и потребляет меньше памяти.
+
+- [ ] Зачем делать repartition перед write??
+
+Чтобы избежать проблемы мелких файлов. Если задач 1000, а партиций в write 1000 → 1000 файлов по 1 МБ. repartition(50) даст 50 файлов по ~200 МБ → эффективнее для Parquet/ClickHouse.
 
 - [ ] Какие основные оконные функции в Spark (DataFrame/SQL) чаще всего ждут на собеседовании?
 
